@@ -1,0 +1,51 @@
+snippet     if
+abbr        if () {}
+prev_word   '^'
+    if (${1:condition}) {
+        ${2}
+    }
+
+snippet     ifelse
+abbr        if () {} else {}
+prev_word   '^'
+    if (${1:condition}) {
+        ${2}
+    } else {
+        ${3}
+    }
+
+snippet     for
+abbr        for () {}
+prev_word   '^'
+    for (${1:initialize}; ${2:condition}; ${3:update}) {
+        ${4}
+    }
+
+snippet     while
+abbr        while () {}
+prev_word   '^'
+    while (${1:condition}) {
+        ${2}
+    }
+
+snippet     function
+abbr        func() {}
+prev_word   '^'
+    ${1:type} ${2:func_name}(${3}) {
+        ${4}
+    }
+
+snippet     struct
+abbr        struct {}
+prev_word   '^'
+    struct ${1:name} {
+        ${2}
+    };
+
+snippet     enum
+abbr        enum {}
+prev_word   '^'
+    enum ${1:name} {
+        ${2}
+    };
+
