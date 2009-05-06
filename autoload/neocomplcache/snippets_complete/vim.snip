@@ -7,6 +7,7 @@ prev_word   '^'
 
 snippet     ifelse
 abbr        if else endif
+rank        4
 prev_word   '^'
     if ${1:condition}
         ${2}
@@ -17,7 +18,7 @@ prev_word   '^'
 snippet     for
 abbr        for in endfor
 prev_word   '^'
-    for ${1:condition} in ${2:list}
+    for ${1:var} in ${2:list}
         ${3}
     endfor
 
