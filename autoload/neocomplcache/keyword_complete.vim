@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: keyword_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 06 May 2009
+" Last Modified: 15 May 2009
 " Usage: Just source this file.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
@@ -23,14 +23,17 @@
 "     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 "     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 " }}}
-" Version: 2.41, for Vim 7.0
+" Version: 2.52, for Vim 7.0
 "=============================================================================
+
+" Important variables.
+let s:sources = {}
 
 function! neocomplcache#keyword_complete#initialize()"{{{
     augroup neocomplcache"{{{
         " Caching events
-        autocmd Filetype * call s:check_source(3)
-        autocmd BufWritePost,BufEnter,CursorHold * call s:update_source()
+        autocmd Filetype * call s:check_source()
+        autocmd BufWritePost,CursorHold * call s:update_source()
         " Caching current buffer events
         autocmd InsertEnter * call s:caching_insert_enter()
         autocmd InsertLeave * call s:caching_insert_leave()
@@ -44,7 +47,7 @@ function! neocomplcache#keyword_complete#initialize()"{{{
         augroup END
     endif
 
-    " Initialize"{{{
+    " Initialize script variables."{{{
     let s:sources = {}
     let s:rank_cache_count = 1
     let s:prev_cached_count = 0
@@ -63,8 +66,7 @@ function! neocomplcache#keyword_complete#initialize()"{{{
     "}}}
 
     " Add commands."{{{
-    command! -nargs=0 NeoComplCacheCachingDictionary call s:caching_dictionary()
-    command! -nargs=* -complete=file NeoComplCacheSetBufferDictionary call s:set_buffer_dictionary(<q-args>)
+    command! -nargs=? NeoComplCacheCachingBuffer call s:caching_buffer(<q-args>)
     command! -nargs=? NeoComplCachePrintSource call s:print_source(<q-args>)
     command! -nargs=? NeoComplCacheOutputKeyword call s:output_keyword(<q-args>)
     command! -nargs=? NeoComplCacheCreateTags call s:create_tags()
@@ -79,18 +81,16 @@ function! neocomplcache#keyword_complete#initialize()"{{{
     let g:NeoComplCache_CtagsArgumentsList['default'] = ''
 
     " Initialize cache.
-    call s:check_source(3)
+    call s:check_source()
 
     " Plugin key-mappings.
-    nnoremap <silent> <Plug>(neocomplcache_keyword_caching)  :<C-u>call <SID>caching(bufnr('%'), line('.'), 1)<CR>
-    inoremap <silent> <Plug>(neocomplcache_keyword_caching)  <C-o>:<C-u>call <SID>caching(bufnr('%'), line('.'), 1)<CR>
+    nnoremap <silent> <Plug>(neocomplcache_keyword_caching)  :<C-u>call <SID>caching(bufnr('%'), line('.'), 1, 2)<CR>
+    inoremap <silent> <Plug>(neocomplcache_keyword_caching)  <C-o>:<C-u>call <SID>caching(bufnr('%'), line('.'), 1, 2)<CR>
 endfunction
 "}}}
 
 function! neocomplcache#keyword_complete#finalize()"{{{
     delcommand NeoComplCacheCachingBuffer
-    delcommand NeoComplCacheCachingDictionary
-    delcommand NeoComplCacheSetBufferDictionary
     delcommand NeoComplCachePrintSource
     delcommand NeoComplCacheOutputKeyword
     delcommand NeoComplCacheCreateTags
@@ -102,16 +102,17 @@ function! neocomplcache#keyword_complete#finalize()"{{{
 endfunction"}}}
 
 function! neocomplcache#keyword_complete#get_keyword_list(cur_keyword_str)"{{{
+    let s:cur_keyword_len = len(a:cur_keyword_str)
     let l:keyword_escape = neocomplcache#keyword_escape(a:cur_keyword_str)
 
     " Keyword filter."{{{
     let l:cur_len = len(a:cur_keyword_str)
     if g:NeoComplCache_PartialMatch && !neocomplcache#skipped() && len(a:cur_keyword_str) >= g:NeoComplCache_PartialCompletionStartLength
         " Partial match.
-        let l:pattern = printf("len(v:val.word) > l:cur_len && v:val.word =~ '%s'", l:keyword_escape)
+        let l:pattern = printf("len(v:val.word) > l:cur_len && v:val.word =~ %s", string(l:keyword_escape))
     else
         " Head match.
-        let l:pattern = printf("len(v:val.word) > l:cur_len && v:val.word =~ '^%s'", l:keyword_escape)
+        let l:pattern = printf("len(v:val.word) > l:cur_len && v:val.word =~ %s", string('^' . l:keyword_escape))
     endif"}}}
 
     let l:keyword_list = []
@@ -122,6 +123,10 @@ function! neocomplcache#keyword_complete#get_keyword_list(cur_keyword_str)"{{{
 endfunction"}}}
 
 function! neocomplcache#keyword_complete#calc_rank(cache_keyword_buffer_list)"{{{
+    if s:cur_keyword_len < g:NeoComplCache_KeywordCompletionStartLength
+        return
+    endif
+
     let l:list_len = len(a:cache_keyword_buffer_list)
 
     if l:list_len > g:NeoComplCache_MaxList * 5
@@ -145,35 +150,26 @@ function! neocomplcache#keyword_complete#calc_rank(cache_keyword_buffer_list)"{{
     endif
 
     for keyword in a:cache_keyword_buffer_list
-        if !has_key(keyword, 'rank') || s:rank_cache_count <= 0
+        if s:rank_cache_count <= 0
             " Set rank.
-            let keyword.rank = 0
+            let keyword.rank = keyword.user_rank
             for keyword_lines in values(s:sources[keyword.srcname].rank_cache_lines)
                 if has_key(keyword_lines, keyword.word)
                     let keyword.rank += keyword_lines[keyword.word].rank
                 endif
             endfor
-        endif
 
-        if s:rank_cache_count <= 0
             " Reset count.
             let s:rank_cache_count = (g:NeoComplCache_CalcRankRandomize)? 
-                        \ reltimestr(reltime())[l:match_end : ] % l:calc_cnt + 1 : l:calc_cnt
-
-            if g:NeoComplCache_EnableInfo
-                " Create info.
-                let keyword.info = join(keyword.info_list, "\n")
-            endif
+                        \ reltimestr(reltime())[l:match_end : ] % l:calc_cnt + 2 : l:calc_cnt
 
             " Check skip time.
             if neocomplcache#check_skip_time()
                 return
             endif
-        else
-            let s:rank_cache_count -= 1
         endif
+        let s:rank_cache_count -= 1
     endfor
-
 endfunction"}}}
 
 function! neocomplcache#keyword_complete#calc_prev_rank(cache_keyword_buffer_list, prev_word, prepre_word)"{{{
@@ -207,17 +203,19 @@ function! neocomplcache#keyword_complete#calc_prev_rank(cache_keyword_buffer_lis
         if has_key(l:source_next, keyword.srcname)
                     \&& has_key(l:source_next[keyword.srcname], keyword.word)
             " Set prev rank.
+            let keyword.prev_rank = keyword.user_rank
             for keyword_lines in values(s:sources[keyword.srcname].rank_cache_lines)
                 if has_key(keyword_lines, keyword.word)
                             \&& has_key(keyword_lines[keyword.word].prev_rank, a:prev_word)
                     let keyword.prev_rank += keyword_lines[keyword.word].prev_rank[a:prev_word]
                 endif
             endfor
-            let keyword.prev_rank = keyword.prev_rank * 12
+            let keyword.prev_rank = keyword.prev_rank * 9
         endif
         if has_key(l:source_next_next, keyword.srcname)
                     \&& has_key(l:source_next_next[keyword.srcname], keyword.word)
             " Set prepre rank.
+            let keyword.prepre_rank = keyword.user_rank
             for keyword_lines in values(s:sources[keyword.srcname].rank_cache_lines)
                 if has_key(keyword_lines, keyword.word)
                             \&& has_key(keyword_lines[keyword.word].prepre_rank, a:prepre_word)
@@ -259,19 +257,46 @@ function! neocomplcache#keyword_complete#caching_percent(number)"{{{
     endif
 endfunction"}}}
 
+function! neocomplcache#keyword_complete#caching_keyword(keyword)"{{{
+    " Ignore too short keyword.
+    if len(a:keyword) < g:NeoComplCache_MinKeywordLength
+        return
+    endif
+
+    let l:source = s:sources[bufnr('%')]
+
+    " Check cache.
+    if !has_key(l:source.keyword_cache, a:keyword)
+        " Append list.
+        let l:filename = '[B] ' . fnamemodify(bufname('%'), ':t')
+        let l:source.keyword_cache[a:keyword] = {
+                    \'word' : a:keyword, 'menu' : printf('%.' . g:NeoComplCache_MaxFilenameWidth . 's', l:filename),
+                    \'filename' : l:filename, 'srcname' : bufnr('%'), 'icase' : 1,
+                    \'user_rank' : 1, 'rank' : 1
+                    \}
+
+        let l:abbr_pattern = printf('%%.%ds..%%s', g:NeoComplCache_MaxKeywordWidth-10)
+        let l:source.keyword_cache[a:keyword].abbr = 
+                    \ (len(a:keyword) > g:NeoComplCache_MaxKeywordWidth)? 
+                    \ printf(l:abbr_pattern, a:keyword, a:keyword[-8:]) : a:keyword
+    else
+        let l:source.keyword_cache[a:keyword].user_rank += 1
+    endif
+endfunction"}}}
+
 function! s:update_source()"{{{
     call s:check_deleted_buffer()
 
     let l:caching_num = 0
     for source_name in keys(s:sources)
-        " Lazy caching.
-        let name = (source_name =~ '^\d')? str2nr(source_name) : source_name
+        if source_name =~ '^\d'
+            " Lazy caching.
+            if s:caching_source(str2nr(source_name), '^', 2) == 0
+                let l:caching_num += 2
 
-        if s:caching_source(name, '^', 2) == 0
-            let l:caching_num += 2
-
-            if l:caching_num >= 6
-                break
+                if l:caching_num >= 6
+                    break
+                endif
             endif
         endif
     endfor
@@ -335,23 +360,12 @@ endfunction"}}}
 function! s:caching(srcname, start_line, end_cache_cnt, add_rank)"{{{
     " Check exists s:sources.
     if !has_key(s:sources, a:srcname)
-        " Initialize source.
-        call s:initialize_source(a:srcname)
-    elseif a:srcname =~ '^\d' && s:check_changed_buffer(a:srcname)
-        " Initialize source if bufname changed.
-        call s:initialize_source(a:srcname)
-        return
+        call s:word_caching(a:srcname, 1, '$')
     endif
 
     let l:source = s:sources[a:srcname]
-    if a:srcname =~ '^\d'
-        " Buffer.
-        let l:filename = '[B] ' . fnamemodify(l:source.name, ':t')
-    else
-        " Dictionary.
-        let l:prefix = '[D] '
-        let l:filename = l:prefix . fnamemodify(l:source.name, ':t')
-    endif
+    " Buffer.
+    let l:filename = '[B] ' . fnamemodify(l:source.name, ':t')
 
     let l:start_line = (a:start_line-1)/l:source.cache_line_cnt*l:source.cache_line_cnt+1
     let l:end_line = (a:end_cache_cnt < 0)? '$' : 
@@ -373,17 +387,9 @@ function! s:caching(srcname, start_line, end_cache_cnt, add_rank)"{{{
     let l:cache_line = (l:start_line-1) / l:source.cache_line_cnt
     let l:source.rank_cache_lines[l:cache_line] = {}
 
-    if a:srcname =~ '^\d'
-        " Buffer.
-        let l:buflines = getbufline(a:srcname, l:start_line, l:end_line)
-    else
-        if l:end_line == '$'
-            let l:end_line = l:source.end_line
-        endif
-        " Dictionary.
-        let l:buflines = readfile(l:source.name)[l:start_line : l:end_line]
-    endif
-    let l:menu = printf(' %.' . g:NeoComplCache_MaxFilenameWidth . 's', l:filename)
+    " Buffer.
+    let l:buflines = getbufline(a:srcname, l:start_line, l:end_line)
+    let l:menu = printf('%.' . g:NeoComplCache_MaxFilenameWidth . 's', l:filename)
     let l:abbr_pattern = printf('%%.%ds..%%s', g:NeoComplCache_MaxKeywordWidth-10)
     let l:keyword_pattern = l:source.keyword_pattern
 
@@ -396,9 +402,8 @@ function! s:caching(srcname, start_line, end_cache_cnt, add_rank)"{{{
         endif
 
         let [l:line, l:rank_cache_line] = [buflines[l:line_num], l:source.rank_cache_lines[l:cache_line]]
-        let [l:match_num, l:prev_word, l:prepre_word, l:info_line, l:line_max] =
-                    \[0, '^', '', substitute(l:line, '^\s\+', '', '')[:100],
-                    \ len(l:line) - g:NeoComplCache_MinKeywordLength]
+        let [l:match_num, l:prev_word, l:prepre_word, l:line_max] =
+                    \[0, '^', '', len(l:line) - g:NeoComplCache_MinKeywordLength]
         while 1
             let l:match = match(l:line, l:keyword_pattern, l:match_num)
             if l:match < 0
@@ -418,20 +423,17 @@ function! s:caching(srcname, start_line, end_cache_cnt, add_rank)"{{{
                         " Append list.
                         let l:source.keyword_cache[l:match_str] = {
                                     \'word' : l:match_str, 'menu' : l:menu,
-                                    \'filename' : l:filename, 'srcname' : a:srcname, 'info_list' : []
+                                    \'filename' : l:filename, 'srcname' : a:srcname, 'icase' : 1,
+                                    \'user_rank' : 0, 'rank' : 1
                                     \}
 
-                        let l:source.keyword_cache[l:match_str].abbr_save = 
+                        let l:source.keyword_cache[l:match_str].abbr = 
                                     \ (len(l:match_str) > g:NeoComplCache_MaxKeywordWidth)? 
                                     \ printf(l:abbr_pattern, l:match_str, l:match_str[-8:]) : l:match_str
                     endif
                 else
                     let l:match_cache_line = l:rank_cache_line[l:match_str]
                     let l:match_cache_line.rank += a:add_rank
-                endif
-
-                if len(l:source.keyword_cache[l:match_str].info_list) < g:NeoComplCache_MaxInfoList
-                    cal add(l:source.keyword_cache[l:match_str].info_list, l:info_line)
                 endif
 
                 " Calc previous keyword rank.
@@ -565,6 +567,101 @@ function! s:initialize_source(srcname)"{{{
                 \}
 endfunction"}}}
 
+function! s:word_caching(srcname, start_line, end_line)"{{{
+    if a:srcname =~ '^\d'
+        " Buffer.
+        let l:buflines = getbufline(a:srcname, a:start_line, a:end_line)
+    else
+        " Dictionary.
+        let l:buflines = readfile(split(a:srcname, ',')[1])
+    endif
+    let [l:max_lines, l:line_num] = [len(l:buflines), 0]
+
+    if a:end_line == '$' && l:max_lines > 200
+        redraw
+
+        if a:srcname =~ '^\d'
+            echo 'Caching buffer... please wait.'
+        else
+            echo 'Caching dictionary... please wait.'
+        endif
+    endif
+
+    " Initialize source.
+    if a:end_line == '$'
+        call s:initialize_source(a:srcname)
+    endif
+    let l:source = s:sources[a:srcname]
+
+    if a:srcname =~ '^\d'
+        " Buffer.
+        let l:filename = '[B] ' . fnamemodify(l:source.name, ':t')
+    else
+        " Dictionary.
+        let l:filename = '[D] ' . fnamemodify(l:source.name, ':t')
+    endif
+
+    let l:menu = printf('%.' . g:NeoComplCache_MaxFilenameWidth . 's', l:filename)
+    let l:abbr_pattern = printf('%%.%ds..%%s', g:NeoComplCache_MaxKeywordWidth-10)
+    let l:keyword_pattern = l:source.keyword_pattern
+
+    if l:max_lines > 10000
+        let l:print_cache_percent = l:max_lines / 9
+    elseif l:max_lines > 5000
+        let l:print_cache_percent = l:max_lines / 6
+    elseif l:max_lines > 3000
+        let l:print_cache_percent = l:max_lines / 5
+    elseif l:max_lines > 2000
+        let l:print_cache_percent = l:max_lines / 4
+    elseif l:max_lines > 1000
+        let l:print_cache_percent = l:max_lines / 3
+    elseif l:max_lines > 500
+        let l:print_cache_percent = l:max_lines / 2
+    else
+        let l:print_cache_percent = -1
+    endif
+    let l:line_cnt = l:print_cache_percent
+
+    while l:line_num < l:max_lines
+        " Percentage check.
+        if l:line_cnt == 0
+            redraw
+            echo printf('Caching: %d%%', l:line_num*100 / l:max_lines)
+            let l:line_cnt = l:print_cache_percent
+        endif
+        let l:line_cnt -= 1
+
+        let [l:line, l:match_num] = [buflines[l:line_num], 0]
+        let l:match_str = matchstr(l:line, l:keyword_pattern, 0)
+        while l:match_str != ''
+            " Ignore too short keyword.
+            if len(l:match_str) >= g:NeoComplCache_MinKeywordLength
+                        \&& !has_key(l:source.keyword_cache, l:match_str)
+                " Append list.
+                let l:source.keyword_cache[l:match_str] = {
+                            \'word' : l:match_str, 'menu' : l:menu,
+                            \'filename' : l:filename, 'srcname' : a:srcname, 'icase' : 1,
+                            \'user_rank' : 0, 'rank' : 1
+                            \}
+
+                let l:source.keyword_cache[l:match_str].abbr = 
+                            \ (len(l:match_str) > g:NeoComplCache_MaxKeywordWidth)? 
+                            \ printf(l:abbr_pattern, l:match_str, l:match_str[-8:]) : l:match_str
+            endif
+
+            let l:match_num += len(l:match_str)
+            let l:match_str = matchstr(l:line, l:keyword_pattern, l:match_num)
+        endwhile
+
+        let l:line_num += 1
+    endwhile
+
+    if a:end_line == '$' && l:max_lines > 200
+        redraw
+        echo 'Caching done.'
+    endif
+endfunction"}}}
+
 function! s:check_changed_buffer(bufname)"{{{
     let l:ft = getbufvar(a:bufname, '&filetype')
     if l:ft == ''
@@ -577,8 +674,7 @@ endfunction"}}}
 
 function! s:caching_source(srcname, start_line, end_cache_cnt)"{{{
     if !has_key(s:sources, a:srcname)
-        " Initialize source.
-        call s:initialize_source(a:srcname)
+        return
     endif
 
     if a:start_line == '^'
@@ -602,19 +698,18 @@ function! s:caching_source(srcname, start_line, end_cache_cnt)"{{{
     return 0
 endfunction"}}}
 
-function! s:check_source(caching_num)"{{{
+function! s:check_source()"{{{
     let l:bufnumber = 1
-    let l:caching_num = 0
-
     let l:ft_dicts = []
     call add(l:ft_dicts, 'default')
 
     " Check new buffer.
     while l:bufnumber <= bufnr('$')
         if buflisted(l:bufnumber)
-            if !has_key(s:sources, l:bufnumber) && !has_key(s:caching_disable_list, l:bufnumber)
+            if (!has_key(s:sources, l:bufnumber) || s:check_changed_buffer(l:bufnumber))
+                        \&& !has_key(s:caching_disable_list, l:bufnumber)
                 " Caching.
-                call s:caching_source(l:bufnumber, '^', a:caching_num)
+                call s:word_caching(l:bufnumber, 1, '$')
             endif
 
             if has_key(g:NeoComplCache_DictionaryFileTypeLists, getbufvar(l:bufnumber, '&filetype'))
@@ -633,7 +728,7 @@ function! s:check_source(caching_num)"{{{
                 let l:dict_name = printf('%s,%s', l:ft_dict, dict)
                 if !has_key(s:sources, l:dict_name) && filereadable(dict)
                     " Caching.
-                    call s:caching_source(l:dict_name, '^', a:caching_num)
+                    call s:word_caching(l:dict_name, 1, '$')
                 endif
             endfor
         endif
@@ -655,8 +750,7 @@ function! s:caching_insert_enter()
     endif
 
     if !has_key(s:sources, bufnr('%'))
-        " Initialize source.
-        call s:initialize_source(bufnr('%'))   
+        call s:word_caching(bufnr('%'), 1, '$')
     endif
 
     let l:source = s:sources[bufnr('%')]
@@ -668,11 +762,12 @@ function! s:caching_insert_enter()
 endfunction
 
 function! s:caching_insert_leave()"{{{
-    if has_key(s:caching_disable_list, bufnr('%')) || @. == ''
+    if !has_key(s:sources, bufnr('%')) || has_key(s:caching_disable_list, bufnr('%')) || @. == ''
         return
     endif
 
     if s:prev_cached_count <= 0
+        " Full caching.
         call s:caching(bufnr('%'), line('.'), 1, 2)
         if g:NeoComplCache_CachingRandomize
             let l:match_end = matchend(reltimestr(reltime()), '\d\+\.') + 1
@@ -681,6 +776,12 @@ function! s:caching_insert_leave()"{{{
             let s:prev_cached_count = 2
         endif
     else
+        " Word caching.
+        let l:source = s:sources[bufnr('%')]
+        let l:start_line = (line('.')-1)/l:source.cache_line_cnt*l:source.cache_line_cnt+1
+        let l:end_line = l:start_line + l:source.cache_line_cnt
+        call s:word_caching(bufnr('%'), l:start_line, l:end_line)
+
         let s:prev_cached_count -= 1
     endif
 endfunction"}}}
@@ -748,13 +849,16 @@ function! s:caching_buffer(number)"{{{
     else
         let l:number = a:number
     endif
-    call s:caching_source(l:number, 1, -1)
+
+    if !has_key(s:sources, l:number) ||
+                \s:sources[l:number].cached_last_line >= s:sources[l:number].end_line
+        return
+    endif
+
+    call s:caching_source(l:number, s:sources[l:number].cached_last_line, -1)
 
     " Disable auto caching.
     let s:sources[l:number].cached_last_line = s:sources[l:number].end_line+1
-
-    " Calc rank.
-    call neocomplcache#get_complete_words('')
 endfunction"}}}
 
 function! s:caching_disable(number)"{{{
@@ -782,30 +886,6 @@ function! s:caching_enable(number)"{{{
     if has_key(s:caching_disable_list, l:number)
         call remove(s:caching_disable_list, l:number)
     endif
-endfunction"}}}
-
-function! s:caching_dictionary()"{{{
-    " Create source.
-    call neocomplcache#keyword_complete#check_source(3)
-
-    " Check dictionaries are exists.
-    if &filetype != '' && has_key(g:NeoComplCache_DictionaryFileTypeLists, &filetype)
-        let l:ft_dict = '^' . &filetype
-    elseif g:NeoComplCache_DictionaryFileTypeLists['default'] != ''
-        let l:ft_dict = '^default'
-    else
-        " Dummy pattern.
-        let l:ft_dict = '^$'
-    endif
-    let l:cache_keyword_buffer_filtered = []
-    for key in keys(s:sources)
-        if key =~ l:ft_dict
-            call s:caching_source(key, '^', -1)
-
-            " Disable auto caching.
-            let s:sources[key].cached_last_line = s:sources[key].end_line+1
-        endif
-    endfor
 endfunction"}}}
 
 function! s:update_tags()"{{{
@@ -851,7 +931,7 @@ function! s:garbage_collect()"{{{
 
     let l:keywords = s:sources[bufnr('%')].keyword_cache
     for l:key in keys(l:keywords)
-        if has_key(l:keywords[l:key], 'rank') && l:keywords[l:key].rank < 2
+        if l:keywords[l:key].rank < 1
             " Delete keyword.
             call remove(l:keywords, l:key)
         endif
@@ -864,6 +944,10 @@ function! s:print_source(number)"{{{
         let l:number = bufnr('%')
     else
         let l:number = a:number
+    endif
+
+    if !has_key(s:sources, l:number)
+        return
     endif
 
     silent put=printf('Print neocomplcache %d source.', l:number)
