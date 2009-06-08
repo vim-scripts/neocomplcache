@@ -1,6 +1,6 @@
 *neocomplcache.txt*	究極の自動補完環境
 
-Version: 2.52
+Version: 2.57
 Author : Shougo <Shougo.Matsu@gmail.com>
 License: MIT license  {{{
     Permission is hereby granted, free of charge, to any person obtaining
@@ -158,7 +158,7 @@ g:NeoComplCache_ManualCompletionStartLength		*g:NeoComplCache_ManualCompletionSt
 g:NeoComplCache_PartialCompletionStartLength		*g:NeoComplCache_PartialCompletionStartLength*
 		補完時に部分マッチを行う入力数を制御する。
 		
-		初期値は3である。
+		初期値は4である。
 
 g:NeoComplCache_MinKeywordLength			*g:NeoComplCache_MinKeywordLength*
 		バッファや辞書ファイル中で、補完の対象となるキーワードの最小長さを制御する。
@@ -271,7 +271,7 @@ g:NeoComplCache_EnableInfo				*g:NeoComplCache_EnableInfo*
 		初期値は0である。
 
 g:NeoComplCache_CachingRandomize			*g:NeoComplCache_CachingRandomize*
-		インサートモードから出る時、現在のキャッシュラインをキャッシュするかどうか決定するのに、
+		Insert modeから出る時、現在のキャッシュラインをキャッシュするかどうか決定するのに、
 		乱数を用いるかどうか制御する。1ならば有効になる。
 		
 		初期値は+reltimeの時に1となる。
@@ -297,6 +297,13 @@ g:NeoComplCache_SnippetsDir				*g:NeoComplCache_SnippetsDir*
 		重複したスニペットは上書きされる。
 		
 		この変数はユーザが自分で定義しない限り存在しない。
+
+g:NeoComplCache_TemporaryDir				*g:NeoComplCache_TemporaryDir*
+		neocomplcacheが一時ファイルを書き出すディレクトリを指定する。
+		ここで指定したディレクトリが実際に存在しない場合、作成される。
+		例えばkeyword_complete.vimはキーワードのキャッシュをこの下の'keyword_cache'ディレクトリに保存する。
+		
+		初期値は'~/.neocon'である。
 
 g:NeoComplCache_KeywordPatterns				*g:NeoComplCache_KeywordPatterns*
 		補完するためのキーワードパターンを記録する。
@@ -341,6 +348,25 @@ KEY MAPPINGS 					*neocomplcache-key-mappings*
 		複数行のスニペットを展開する。プレースホルダの処理も行う。
 		展開したスニペットはランクが上昇するため、上位に表示されやすくなる。
 
+neocomplcache#manual_filename_complete				*neocomplcache#manual_filename_complete*
+		inoremap <expr>上で使用する。neocomplcacheのファイル名補完を手動で呼び出す。
+		Vim標準のファイル名補完を置き換えるときに使う。
+>
+		inoremap <expr><C-x><C-f>  neocomplcache#manual_filename_complete()
+<
+neocomplcache#close_popup				*neocomplcache#close_popup*
+		inoremap <expr>上で使用する。neocomplcacheのポップアップを閉じ、補完を終了する。
+		Vim標準の<C-y>よりも確実にポップアップを閉じることができる。
+		この関数を使ってポップアップを閉じると、選択した候補のランクが上昇する。
+>
+		inoremap <expr><C-y>  pumvisible() ? neocomplcache#close_popup() :  "\<C-y>"
+<
+neocomplcache#cancel_popup				*neocomplcache#cancel_popup*
+		inoremap <expr>上で使用する。neocomplcacheの補完をキャンセルする。
+		Vim標準の<C-e>よりも確実にポップアップを閉じることができる。
+>
+		inoremap <expr><C-e>  pumvisible() ? neocomplcache#cancel_popup() : "\<C-e>"
+<
 ==============================================================================
 EXAMPLES					*neocomplcache-examples*
 >
