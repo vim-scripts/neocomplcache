@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: neocomplcache.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 10 Jul 2009
+" Last Modified: 09 Aug 2009
 " Usage: Just source this file.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
@@ -23,10 +23,48 @@
 "     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 "     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 " }}}
-" Version: 2.62, for Vim 7.0
+" Version: 2.66, for Vim 7.0
 "-----------------------------------------------------------------------------
 " ChangeLog: "{{{
 " ChangeLog NeoComplCache2: "{{{
+"   2.67:
+"    - Fixed snippet without default value expand bug.
+"
+"   2.66:
+"    - Improved manual.
+"    - Fixed snippet expand bugs.
+"    - Caching snippets when file open.
+"    - g:NeoComplCache_SnippetsDir is comma-separated list.
+"    - Supported escape sequence in filename completion.
+"    - Improved set complete function timing.
+"
+"   2.65:
+"    - Deleted wildcard from filename completion.
+"    - Fixed ATOK X3 on when snippets expanded.
+"    - Fixed syntax match timing(Thanks thinca!).
+"    - Improved vimshell keyword pattern.
+"    - Added snippet delete.
+"    - Added English manual.
+"
+"   2.64:
+"    - Substitute \ -> / in Windows.
+"    - Improved NeoComplCacheCachingBuffer command.
+"    - Added g:NeoComplCache_CachingLimitFileSize option.
+"    - Added g:NeoComplCache_CachingDisablePattern option.
+"    - Don't caching readonly file.
+"    - Improved neocomplcache#keyword_complete#caching_percent.
+"
+"   2.63:
+"    - Substitute ... -> ../.. .
+"    - Changed short filename into ~.
+"    - Improved filename completion.
+"    - Callable get_complete_words() and word_caching_current_line() function.
+"    - Erb is same filetype with ruby.
+"    - Improved html and erb filetype.
+"    - Improved erb snippets.
+"    - Improved css omni completion.
+"    - Improved vimshell keyword pattern.
+"
 "   2.62:
 "    - Added make syntax.
 "    - Put up the priority of directory in filename completion.
@@ -683,6 +721,12 @@ if !exists('g:NeoComplCache_EnableUnderbarCompletion')
 endif
 if !exists('g:NeoComplCache_FilenameCompletionSkipItems')
     let g:NeoComplCache_FilenameCompletionSkipItems = 100
+endif
+if !exists('g:NeoComplCache_CachingLimitFileSize')
+    let g:NeoComplCache_CachingLimitFileSize = 1000000
+endif
+if !exists('g:NeoComplCache_CachingDisablePattern')
+    let g:NeoComplCache_CachingDisablePattern = ''
 endif
 if !exists('g:NeoComplCache_TemporaryDir')
     let g:NeoComplCache_TemporaryDir = $HOME . '/.neocon'
