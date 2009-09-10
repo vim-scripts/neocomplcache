@@ -1,6 +1,6 @@
 *neocomplcache.txt*	究極の自動補完環境
 
-Version: 2.66
+Version: 2.75
 Author : Shougo <Shougo.Matsu@gmail.com>
 License: MIT license  {{{
     Permission is hereby granted, free of charge, to any person obtaining
@@ -32,7 +32,6 @@ Interface		|neocomplcache-interface|
 Examples		|neocomplcache-examples|
 Plugins			|neocomplcache-plugins|
 Create plugin		|neocomplcache-create-plugin|
-Bugs			|neocomplcache-bugs|
 Changelog		|neocomplcache-changelog|
 
 ==============================================================================
@@ -81,6 +80,10 @@ COMMANDS 					*neocomplcache-commands*
 		大きなバッファに対しては、かなり時間がかかるので注意。
 		[bufnr]を省略すると、カレントバッファを指定したことになる。
 		[bufnr]のバッファがまだキャッシュされていない場合、簡易キャッシュのみを行う。
+
+:NeoComplCacheCachingSyntax [filetype]			*:NeoComplCacheCachingSyntax*
+		[filetype]のシンタックスをもう一度キャッシュする。
+		[filetype]を省略すると、カレントバッファのファイルタイプを指定したことになる。
 
 :NeoComplCacheCachingDisable [bufnr]			*:NeoComplCacheCachingDisable*
 		[bufnr]で示されるバッファをキャッシュしないようにする。
@@ -214,6 +217,7 @@ g:NeoComplCache_EnableQuickMatch			*g:NeoComplCache_EnableQuickMatch*
 		1ならば有効になる。
 		
 		初期値は1なので、有効になっている。
+		この機能を使用するためには、'completeopt'にmenuoneが含まれている必要がある。
 
 g:NeoComplCache_CalcRankRandomize			*g:NeoComplCache_CalcRankRandomize*
 		頻度を再計算するときに、乱数を使用するかを制御する。
@@ -291,12 +295,6 @@ g:NeoComplCache_EnableUnderbarCompletion		*g:NeoComplCache_EnableUnderbarComplet
 		
 		副作用があるので、初期値は0となっている。
 
-g:NeoComplCache_FilenameCompletionSkipItems		*g:NeoComplCache_FilenameCompletionSkipItems*
-		ファイル名を自動補完するときに、スキップを行う候補数を制御する。
-		候補がこの数以上ならば、自動補完はスキップされる。
-		
-		初期値は100となっている。
-
 g:NeoComplCache_CachingLimitFileSize			*g:NeoComplCache_CachingLimitFileSize*
 		ファイルをキャッシュするファイルサイズを設定する。
 		開いたファイルがこのサイズより大きいとキャッシュしない。
@@ -357,6 +355,12 @@ g:NeoComplCache_DictionaryFileTypeLists			*g:NeoComplCache_DictionaryFileTypeLis
 		
 		初期値は空である。
 
+g:NeoComplCache_PluginCompletionLength			*g:NeoComplCache_PluginCompletionLength*
+		補完関数を呼び出す文字数をプラグインごとに指定するディクショナリ。
+		重いプラグインは文字数が多いときにのみ呼び出せるようにするなどが考えられる。
+		
+		初期値は空である。
+
 ------------------------------------------------------------------------------
 KEY MAPPINGS 					*neocomplcache-key-mappings*
 
@@ -365,7 +369,7 @@ KEY MAPPINGS 					*neocomplcache-key-mappings*
 		打ち込んだ単語をすぐにキャッシュしたい時に便利である。
 
 <Plug>(neocomplcache_snippets_expand)				*<Plug>(neocomplcache_snippets_expand)*
-		複数行のスニペットを展開する。プレースホルダの処理も行う。
+		カーソル位置にあるスニペットを展開する。プレースホルダの処理も行う。
 		展開したスニペットはランクが上昇するため、上位に表示されやすくなる。
 
 neocomplcache#manual_filename_complete				*neocomplcache#manual_filename_complete*
@@ -460,9 +464,6 @@ syntax_complete.vim					*syntax_complete*
 		autoload/syntaxcomplete.vimよりもたくさんの候補を認識できる。
 
 ==============================================================================
-BUGS						*neocomplcache-bugs*
-
-==============================================================================
 CREATE PLUGIN					*neocomplcache-create-plugin*
 
 この項では、neocomplcacheのプラグインを作成する方法について解説する。
@@ -471,7 +472,7 @@ CREATE PLUGIN					*neocomplcache-create-plugin*
 ==============================================================================
 CHANGELOG					*neocomplcache-changelog*
 
-量が多いため、plugin/neocomplcache.vimを参照せよ。
+doc/neocomplcache.txtを参照せよ。
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:fen:fdl=0:fdm=marker:
