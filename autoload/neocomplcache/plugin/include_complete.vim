@@ -41,7 +41,7 @@
 " Important variables.
 let s:sources = {}
 
-function! neocomplcache#include_complete#initialize()"{{{
+function! neocomplcache#plugin#include_complete#initialize()"{{{
     " Initialize
 
     augroup neocomplcache"{{{
@@ -73,10 +73,10 @@ function! neocomplcache#include_complete#initialize()"{{{
     endif
 endfunction"}}}
 
-function! neocomplcache#include_complete#finalize()"{{{
+function! neocomplcache#plugin#include_complete#finalize()"{{{
 endfunction"}}}
 
-function! neocomplcache#include_complete#get_keyword_list(cur_keyword_str)"{{{
+function! neocomplcache#plugin#include_complete#get_keyword_list(cur_keyword_str)"{{{
     let s:cur_keyword_len = len(a:cur_keyword_str)
     let l:keyword_escape = neocomplcache#keyword_escape(a:cur_keyword_str)
 
@@ -98,11 +98,11 @@ function! neocomplcache#include_complete#get_keyword_list(cur_keyword_str)"{{{
 endfunction"}}}
 
 " Dummy function.
-function! neocomplcache#include_complete#calc_rank(cache_keyword_buffer_list)"{{{
+function! neocomplcache#plugin#include_complete#calc_rank(cache_keyword_buffer_list)"{{{
 endfunction"}}}
 
 " Dummy function.
-function! neocomplcache#include_complete#calc_prev_rank(cache_keyword_buffer_list, prev_word, prepre_word)"{{{
+function! neocomplcache#plugin#include_complete#calc_prev_rank(cache_keyword_buffer_list, prev_word, prepre_word)"{{{
 endfunction"}}}
 
 " Event functions.

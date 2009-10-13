@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: syntax_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 03 Sep 2009
+" Last Modified: 27 Sep 2009
 " Usage: Just source this file.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
@@ -23,9 +23,15 @@
 "     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 "     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 " }}}
-" Version: 1.21, for Vim 7.0
+" Version: 1.24, for Vim 7.0
 "-----------------------------------------------------------------------------
 " ChangeLog: "{{{
+"   1.24:
+"    - Supported neocomplcache 3.0.
+"
+"   1.23:
+"    - Supported g:NeoComplCache_CachingPercentInStatusline.
+"
 "   1.22:
 "    - Fixed long abbr bug.
 "    - Ignore japanese syntax message.
@@ -96,7 +102,7 @@
 ""}}}
 "=============================================================================
 
-function! neocomplcache#syntax_complete#initialize()"{{{
+function! neocomplcache#plugin#syntax_complete#initialize()"{{{
     " Initialize.
     let s:syntax_list = {}
 
@@ -112,11 +118,11 @@ function! neocomplcache#syntax_complete#initialize()"{{{
     endif
 endfunction"}}}
 
-function! neocomplcache#syntax_complete#finalize()"{{{
+function! neocomplcache#plugin#syntax_complete#finalize()"{{{
     delcommand NeoComplCacheCachingSyntax
 endfunction"}}}
 
-function! neocomplcache#syntax_complete#get_keyword_list(cur_keyword_str)"{{{
+function! neocomplcache#plugin#syntax_complete#get_keyword_list(cur_keyword_str)"{{{
     if &filetype == '' || !has_key(s:syntax_list, &filetype)
         return []
     endif
@@ -125,21 +131,35 @@ function! neocomplcache#syntax_complete#get_keyword_list(cur_keyword_str)"{{{
 endfunction"}}}
 
 " Dummy function.
-function! neocomplcache#syntax_complete#calc_rank(cache_keyword_buffer_list)"{{{
+function! neocomplcache#plugin#syntax_complete#calc_rank(cache_keyword_buffer_list)"{{{
     return
 endfunction"}}}
-function! neocomplcache#syntax_complete#calc_prev_rank(cache_keyword_buffer_list, prev_word, prepre_word)"{{{
+function! neocomplcache#plugin#syntax_complete#calc_prev_rank(cache_keyword_buffer_list, prev_word, prepre_word)"{{{
     return
 endfunction"}}}
 
 function! s:caching()"{{{
     " Caching.
     if &filetype != '' && buflisted(bufnr('%')) && !has_key(s:syntax_list, &filetype)
-        redraw
-        echo 'Caching syntax... please wait.'
-        let s:syntax_list[&filetype] = s:initialize_syntax()
-        redraw
-        echo 'Caching done.'
+        if g:NeoComplCache_CachingPercentInStatusline
+            let l:statusline_save = &l:statusline
+            let &l:statusline = 'Caching syntax... please wait.'
+            redrawstatus
+
+            let s:syntax_list[&filetype] = s:initialize_syntax()
+
+            let &l:statusline = l:statusline_save
+            redrawstatus
+        else
+            redraw
+            echo 'Caching syntax... please wait.'
+
+            let s:syntax_list[&filetype] = s:initialize_syntax()
+
+            redraw
+            echo ''
+            redraw
+        endif
     endif
 endfunction"}}}
 
