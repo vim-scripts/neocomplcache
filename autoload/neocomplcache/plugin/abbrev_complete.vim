@@ -1,7 +1,7 @@
 "=============================================================================
-" FILE: spell_complete.vim
+" FILE: abbrev_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 01 Jun 2010
+" Last Modified: 02 Jun 2010
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -24,22 +24,31 @@
 " }}}
 "=============================================================================
 
-function! neocomplcache#plugin#spell_complete#initialize()"{{{
+function! neocomplcache#plugin#abbrev_complete#initialize()"{{{
   " Initialize.
 endfunction"}}}
 
-function! neocomplcache#plugin#spell_complete#finalize()"{{{
+function! neocomplcache#plugin#abbrev_complete#finalize()"{{{
 endfunction"}}}
 
-function! neocomplcache#plugin#spell_complete#get_keyword_list(cur_keyword_str)"{{{
-  if !&spell || neocomplcache#is_auto_complete() || len(a:cur_keyword_str) < 4
-    return []
-  endif
+function! neocomplcache#plugin#abbrev_complete#get_keyword_list(cur_keyword_str)"{{{
+  " Get current abbrev list.
+  redir => l:abbrev_list
+  silent! iabbrev
+  redir END
 
   let l:list = []
-  for l:keyword in spellsuggest(a:cur_keyword_str)
-    call add(l:list, { 'word' : l:keyword, 'menu' : '[Spell]' })
-  end
+  for l:line in split(l:abbrev_list, '\n')
+    let l:abbrev = split(l:line)
+
+    if l:abbrev[0] !~ '^[!ac]$'
+      " No abbreviation found.
+      return []
+    endif
+
+    call add(l:list, 
+          \{ 'word' : l:abbrev[1], 'menu' : printf('[A] %.'. g:neocomplcache_max_filename_width.'s', l:abbrev[2]) })
+  endfor
 
   return l:list
 endfunction"}}}
