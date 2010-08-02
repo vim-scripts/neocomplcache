@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: dictionary_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 08 Jun 2010
+" Last Modified: 10 Jul 2010
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -24,7 +24,12 @@
 " }}}
 "=============================================================================
 
-function! neocomplcache#plugin#dictionary_complete#initialize()"{{{
+let s:source = {
+      \ 'name' : 'dictionary_complete',
+      \ 'kind' : 'plugin',
+      \}
+
+function! s:source.initialize()"{{{
   " Initialize.
   let s:dictionary_list = {}
   let s:completion_length = neocomplcache#get_auto_completion_length('dictionary_complete')
@@ -50,18 +55,28 @@ function! neocomplcache#plugin#dictionary_complete#initialize()"{{{
   endif
 endfunction"}}}
 
-function! neocomplcache#plugin#dictionary_complete#finalize()"{{{
+function! s:source.finalize()"{{{
   delcommand NeoComplCacheCachingDictionary
 endfunction"}}}
 
-function! neocomplcache#plugin#dictionary_complete#get_keyword_list(cur_keyword_str)"{{{
+function! s:source.get_keyword_list(cur_keyword_str)"{{{
   let l:list = []
 
-  for l:source in neocomplcache#get_sources_list(s:dictionary_list, neocomplcache#get_context_filetype())
+  let l:key = neocomplcache#is_text_mode() ? 'text' : neocomplcache#get_context_filetype()
+  if neocomplcache#is_text_mode() && !has_key(s:dictionary_list, 'text')
+    " Caching.
+    call s:caching()
+  endif
+
+  for l:source in neocomplcache#get_sources_list(s:dictionary_list, l:key)
     let l:list += neocomplcache#dictionary_filter(l:source, a:cur_keyword_str, s:completion_length)
   endfor
 
   return l:list
+endfunction"}}}
+
+function! neocomplcache#sources#dictionary_complete#define()"{{{
+  return s:source
 endfunction"}}}
 
 function! s:caching()"{{{
@@ -69,7 +84,8 @@ function! s:caching()"{{{
     return
   endif
 
-  for l:filetype in keys(neocomplcache#get_source_filetypes(neocomplcache#get_context_filetype()))
+  let l:key = neocomplcache#is_text_mode() ? 'text' : neocomplcache#get_context_filetype()
+  for l:filetype in keys(neocomplcache#get_source_filetypes(l:key))
     if !has_key(s:dictionary_list, l:filetype)
       call neocomplcache#print_caching('Caching dictionary "' . l:filetype . '"... please wait.')
 
@@ -82,7 +98,7 @@ endfunction"}}}
 
 function! s:recaching(filetype)"{{{
   if a:filetype == ''
-    let l:filetype = neocomplcache#get_context_filetype()
+    let l:filetype = neocomplcache#get_context_filetype(1)
   else
     let l:filetype = a:filetype
   endif

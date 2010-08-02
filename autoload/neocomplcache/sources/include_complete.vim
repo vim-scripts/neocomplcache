@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: include_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 08 Jun 2010
+" Last Modified: 23 Jul 2010
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -25,12 +25,21 @@
 "=============================================================================
 
 let s:include_info = {}
-function! neocomplcache#plugin#include_complete#initialize()"{{{
+
+let s:source = {
+      \ 'name' : 'include_complete',
+      \ 'kind' : 'plugin',
+      \}
+
+function! s:source.initialize()"{{{
   " Initialize
   let s:include_info = {}
   let s:include_cache = {}
   let s:cached_pattern = {}
   let s:completion_length = neocomplcache#get_auto_completion_length('include_complete')
+  
+  " Set rank.
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_plugin_rank, 'include_complete', 7)
 
   augroup neocomplcache
     " Caching events
@@ -38,16 +47,16 @@ function! neocomplcache#plugin#include_complete#initialize()"{{{
   augroup END
 
   " Initialize include pattern."{{{
-  call neocomplcache#set_variable_pattern('g:neocomplcache_include_patterns', 'java,haskell', '^import')
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_include_patterns, 'java,haskell', '^import')
   "}}}
   " Initialize expr pattern."{{{
-  call neocomplcache#set_variable_pattern('g:neocomplcache_include_exprs', 'haskell',
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_include_exprs, 'haskell',
         \'substitute(v:fname,''\\.'',''/'',''g'')')
   "}}}
   " Initialize path pattern."{{{
   "}}}
   " Initialize suffixes pattern."{{{
-  call neocomplcache#set_variable_pattern('g:neocomplcache_include_suffixes', 'haskell', '.hs')
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_include_suffixes, 'haskell', '.hs')
   "}}}
 
   " Create cache directory.
@@ -59,12 +68,12 @@ function! neocomplcache#plugin#include_complete#initialize()"{{{
   command! -nargs=? -complete=buffer NeoComplCacheCachingInclude call s:check_buffer(<q-args>)
 endfunction"}}}
 
-function! neocomplcache#plugin#include_complete#finalize()"{{{
+function! s:source.finalize()"{{{
   delcommand NeoComplCacheCachingInclude
 endfunction"}}}
 
-function! neocomplcache#plugin#include_complete#get_keyword_list(cur_keyword_str)"{{{
-  if !has_key(s:include_info, bufnr('%'))
+function! s:source.get_keyword_list(cur_keyword_str)"{{{
+  if !has_key(s:include_info, bufnr('%')) || neocomplcache#within_comment()
     return []
   endif
 
@@ -88,7 +97,11 @@ function! neocomplcache#plugin#include_complete#get_keyword_list(cur_keyword_str
   return neocomplcache#member_filter(l:keyword_list, a:cur_keyword_str)
 endfunction"}}}
 
-function! neocomplcache#plugin#include_complete#get_include_files(bufnumber)"{{{
+function! neocomplcache#sources#include_complete#define()"{{{
+  return s:source
+endfunction"}}}
+
+function! neocomplcache#sources#include_complete#get_include_files(bufnumber)"{{{
   if has_key(s:include_info, a:bufnumber)
     return s:include_info[a:bufnumber].include_files
   else
@@ -143,13 +156,13 @@ function! s:get_buffer_include_files(bufnumber)"{{{
         \&& !has_key(g:neocomplcache_include_paths, 'python')
         \&& executable('python')
     " Initialize python path pattern.
-    call neocomplcache#set_variable_pattern('g:neocomplcache_include_paths', 'python',
+    call neocomplcache#set_dictionary_helper(g:neocomplcache_include_paths, 'python',
           \neocomplcache#system('python -', 'import sys;sys.stdout.write(",".join(sys.path))'))
   endif
 
   let l:pattern = has_key(g:neocomplcache_include_patterns, l:filetype) ? 
         \g:neocomplcache_include_patterns[l:filetype] : getbufvar(a:bufnumber, '&include')
-  if l:pattern == ''
+  if l:pattern == '' || (l:filetype !~# '^\%(c\|cpp\|objc\)$' && l:pattern ==# '^\s*#\s*include')
     return []
   endif
   let l:path = has_key(g:neocomplcache_include_paths, l:filetype) ? 
@@ -268,6 +281,8 @@ function! s:load_from_cache(filename)"{{{
   let l:keyword_lists = {}
 
   for l:keyword in neocomplcache#cache#load_from_cache('include_cache', a:filename)
+    let l:keyword.dup = 1
+    
     let l:key = tolower(l:keyword.word[: s:completion_length-1])
     if !has_key(l:keyword_lists, l:key)
       let l:keyword_lists[l:key] = []
