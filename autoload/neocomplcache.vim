@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: neocomplcache.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 30 Sep 2010
+" Last Modified: 05 Dec 2010
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -22,7 +22,7 @@
 "     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 "     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 " }}}
-" Version: 5.2, for Vim 7.0
+" Version: 5.3, for Vim 7.0
 "=============================================================================
 
 " Check vimproc.
@@ -44,7 +44,7 @@ function! neocomplcache#enable() "{{{
     autocmd InsertEnter * call s:on_insert_enter()
     autocmd InsertLeave * call s:on_insert_leave()
   augroup END "}}}
-  
+
   " Disable beep.
   set vb t_vb=
 
@@ -83,7 +83,9 @@ function! neocomplcache#enable() "{{{
           \ && (!has_key(g:neocomplcache_plugin_disable, l:source_name) || 
           \ g:neocomplcache_plugin_disable[l:source_name] == 0)
       let l:source = call('neocomplcache#sources#' . l:source_name . '#define', [])
-      if l:source.kind ==# 'complfunc'
+      if empty(l:source)
+        " Ignore.
+      elseif l:source.kind ==# 'complfunc'
         let s:complfunc_sources[l:source_name] = l:source
       elseif l:source.kind ==# 'ftplugin'
         let s:ftplugin_sources[l:source_name] = l:source
@@ -105,8 +107,8 @@ function! neocomplcache#enable() "{{{
         \'\k\+')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'filename',
   \'\%(\\[^[:alnum:].-]\|\f\)\+')
-  call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'lisp,scheme,clojure,int-gosh,int-clisp,int-clj', 
-        \'[[:alnum:]+*@$%^&_=<>~.-]\+[!?]\?')
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'lisp,scheme,clojure,int-gosh,int-clisp,int-clj',
+        \'[[:alpha:]+*/@$_=.!?-][[:alnum:]+*/@$_:=.!?-]*')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'ruby,int-irb',
         \'^=\%(b\%[egin]\|e\%[nd]\)\|\%(@@\|[:$@]\)\h\w*\|\h\w*\%(::\w*\)*[!?]\?\%(()\?\|\s\?\%(do\|{\)\s\?\)\?')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'php',
@@ -114,13 +116,13 @@ function! neocomplcache#enable() "{{{
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'perl,int-perlsh',
         \'<\h\w*>\?\|[$@%&*]\h\w*\|\h\w*\%(::\w*\)*\%(()\?\)\?')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'perl6,int-perl6',
-        \'<\h\w*>\?\|[$@%&][!.*?]\?\h\w*\|\h\w*\%(::\w*\)*\%(()\?\)\?')
+        \'<\h\w*>\?\|[$@%&][!.*?]\?\h[[:alnum:]_-]*\|\h[[:alnum:]_-]*\%(::[[:alnum:]_-]*\)*\%(()\?\)\?')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'pir',
         \'[$@%.=]\?\h\w*')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'pasm',
         \'[=]\?\h\w*')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'vim,help',
-        \'\[:\%(\h\w*:\]\)\?\|&\h[[:alnum:]_:]*\|\$\h\w*\|-\h\w*=\?\|<\h[[:alnum:]_-]*>\?\|\h[[:alnum:]_:#]*\%(!\|()\?\)\?')
+        \'\c\[:\%(\h\w*:\]\)\?\|&\h[[:alnum:]_:]*\|\$\h\w*\|-\h\w*=\?\|<SID>\%(\h\w*(\?\)\?\|<Plug>([^)]*)\?\|<\h[[:alnum:]_-]*>\?\|\h[[:alnum:]_:#]*\%(!\|()\?\)\?')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'tex',
         \'\\\a{\a\{1,2}}\|\\[[:alpha:]@][[:alnum:]@]*\%({\%([[:alnum:]:]\+\*\?}\?\)\?\)\?\|\a[[:alnum:]:]*\*\?')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'sh,zsh,int-zsh,int-bash,int-sh',
@@ -154,7 +156,7 @@ function! neocomplcache#enable() "{{{
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'awk',
         \'\h\w*\%(()\?\)\?')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'haskell,int-ghci',
-        \'[[:alpha:]_''][[:alnum:]_'']*')
+        \'\%(\u\w*\.\)\+[[:alnum:]_'']*\|[[:alpha:]_''][[:alnum:]_'']*')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'ml,ocaml,int-ocaml,int-sml,int-smlsharp',
         \'[''`#.]\?\h[[:alnum:]_'']*')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'erlang,int-erl',
@@ -193,6 +195,10 @@ function! neocomplcache#enable() "{{{
         \'\a[[:alnum:]]*\%(()\?\)\?\|#\a[[:alnum:]]*')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'lua',
         \'\h\w*\%(()\?\)\?')
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'zimbu',
+        \'\h\w*\%(()\?\)\?')
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_keyword_patterns, 'konoha',
+        \'[*$@%]\h\w*\|\h\w*\%(()\?\|!!\)\?')
   "}}}
 
   " Initialize next keyword patterns."{{{
@@ -204,7 +210,7 @@ function! neocomplcache#enable() "{{{
   call neocomplcache#set_dictionary_helper(g:neocomplcache_next_keyword_patterns, 'perl6',
         \'\h\w*>')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_next_keyword_patterns, 'vim,help',
-        \'\h\w*:\]\|\h\w*=\|[[:alnum:]_-]*>')
+        \'\w*:\]\|[[:alnum:]_-]*[)>=]')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_next_keyword_patterns, 'tex',
         \'\h\w*\*\?[*[{}]')
   call neocomplcache#set_dictionary_helper(g:neocomplcache_next_keyword_patterns, 'html,xhtml,xml,mkd',
@@ -277,7 +283,7 @@ function! neocomplcache#enable() "{{{
         \ {'filetype' : 'css', 'start' : '<style type="text/css">', 'end' : '</style>'},  
         \])
   "}}}
-  
+
   " Initialize member prefix patterns."{{{
   if !exists('g:neocomplcache_member_prefix_patterns')
     let g:neocomplcache_member_prefix_patterns = {}
@@ -296,16 +302,22 @@ function! neocomplcache#enable() "{{{
         \['#'])
   call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'erlang,lisp,int-clisp',
         \[':'])
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'lisp,int-clisp',
+        \['/', ':'])
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'clojure,int-clj',
+        \['/', '\.'])
   call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'perl,cpp',
         \['::'])
   call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'php',
-        \['\', '::'])
-  call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'java,d,javascript,actionscript,ruby,eruby,haskell,coffee',
+        \['\\', '::'])
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'java,d,javascript,actionscript,ruby,eruby,haskell,int-ghci,coffee,zimbu,konoha',
         \['\.'])
   call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'lua',
         \['\.', ':'])
+  call neocomplcache#set_dictionary_helper(g:neocomplcache_delimiter_patterns, 'perl6',
+        \['\.', '::'])
   "}}}
-  
+
   " Initialize ctags arguments."{{{
   if !exists('g:neocomplcache_ctags_arguments_list')
     let g:neocomplcache_ctags_arguments_list = {}
@@ -326,7 +338,7 @@ function! neocomplcache#enable() "{{{
   call neocomplcache#set_dictionary_helper(g:neocomplcache_ctags_arguments_list, 'cpp',
         \'--c++-kinds=+p --fields=+iaS --extra=+q -I __wur')
   "}}}
-  
+
   " Initialize text mode filetypes."{{{
   if !exists('g:neocomplcache_text_mode_filetypes')
     let g:neocomplcache_text_mode_filetypes = {}
@@ -792,6 +804,11 @@ function! s:compare_pos(i1, i2)
 endfunction"}}}
 
 function! neocomplcache#rand(max)"{{{
+  if !has('reltime')
+    " Same value.
+    return 0
+  endif
+
   let l:time = reltime()[1]
   return (l:time < 0 ? -l:time : l:time)% (a:max + 1)
 endfunction"}}}
@@ -1008,7 +1025,7 @@ function! neocomplcache#get_plugin_rank(plugin_name)"{{{
   elseif has_key(s:ftplugin_sources, a:plugin_name)
     return 100
   elseif has_key(s:plugin_sources, a:plugin_name)
-    return 5
+    return neocomplcache#get_plugin_rank('keyword_complete')
   else
     " unknown.
     return 1
@@ -1061,147 +1078,148 @@ function! s:display_neco(number)"{{{
   let l:animation = [
     \[
         \[
-        \ "   A A", 
+        \ "   A A",
         \ "~(-'_'-)"
-        \], 
+        \],
         \[
-        \ "      A A", 
+        \ "      A A",
         \ "   ~(-'_'-)",
         \],
         \[
-        \ "        A A", 
+        \ "        A A",
         \ "     ~(-'_'-)",
         \],
         \[
-        \ "          A A  ", 
+        \ "          A A  ",
         \ "       ~(-'_'-)",
-        \], 
+        \],
         \[
-        \ "             A A", 
+        \ "             A A",
         \ "          ~(-^_^-)",
-        \], 
+        \],
     \],
     \[
         \[
-        \ "   A A", 
+        \ "   A A",
         \ "~(-'_'-)",
         \],
         \[
-        \ "      A A", 
+        \ "      A A",
         \ "   ~(-'_'-)",
         \],
         \[
-        \ "        A A", 
+        \ "        A A",
         \ "     ~(-'_'-)",
         \],
         \[
-        \ "          A A  ", 
+        \ "          A A  ",
         \ "       ~(-'_'-)",
-        \], 
+        \],
         \[
-        \ "             A A", 
+        \ "             A A",
         \ "          ~(-'_'-)",
         \],
         \[
-        \ "          A A  ", 
+        \ "          A A  ",
         \ "       ~(-'_'-)"
         \],
         \[
-        \ "        A A", 
+        \ "        A A",
         \ "     ~(-'_'-)"
         \],
         \[
-        \ "      A A", 
+        \ "      A A",
         \ "   ~(-'_'-)"
         \],
         \[
-        \ "   A A", 
+        \ "   A A",
         \ "~(-'_'-)"
         \],
     \],
     \[
         \[
-        \ "   A A", 
+        \ "   A A",
         \ "~(-'_'-)",
-        \], 
+        \],
         \[
-        \ "        A A", 
+        \ "        A A",
         \ "     ~(-'_'-)",
         \],
         \[
-        \ "             A A", 
+        \ "             A A",
         \ "          ~(-'_'-)",
         \],
         \[
-        \ "                  A A", 
+        \ "                  A A",
         \ "               ~(-'_'-)",
         \],
         \[
-        \ "                       A A", 
+        \ "                       A A",
         \ "                    ~(-'_'-)",
         \],
-        \["                           A A", 
+        \["                           A A",
         \ "                        ~(-'_'-)",
         \],
     \],
     \[
         \[
         \ "",
-        \ "   A A", 
+        \ "   A A",
         \ "~(-'_'-)",
-        \], 
-        \["      A A", 
+        \],
+        \["      A A",
         \ "   ~(-'_'-)",
         \ "",
-        \], 
+        \],
         \[
         \ "",
-        \ "        A A", 
+        \ "        A A",
         \ "     ~(-'_'-)",
         \],
         \[
-        \ "          A A  ", 
-        \ "       ~(-'_'-)", 
+        \ "          A A  ",
+        \ "       ~(-'_'-)",
         \ "",
-        \], 
+        \],
         \[
         \ "",
-        \ "             A A", 
+        \ "             A A",
         \ "          ~(-^_^-)",
         \],
     \],
     \[
         \[
-        \ "   A A        A A", 
+        \ "   A A        A A",
         \ "~(-'_'-)  -8(*'_'*)"
-        \], 
+        \],
         \[
-        \ "     A A        A A", 
+        \ "     A A        A A",
         \ "  ~(-'_'-)  -8(*'_'*)"
         \],
         \[
-        \ "       A A        A A", 
+        \ "       A A        A A",
         \ "    ~(-'_'-)  -8(*'_'*)"
         \],
         \[
-        \ "     A A        A A", 
+        \ "     A A        A A",
         \ "  ~(-'_'-)  -8(*'_'*)"
-        \], 
+        \],
         \[
-        \ "   A A        A A", 
+        \ "   A A        A A",
         \ "~(-'_'-)  -8(*'_'*)"
-        \], 
+        \],
     \],
     \[
         \[
         \ "  A\\_A\\",
-        \ "(=' .' ) ~笙･",
+        \ "(=' .' ) ~w",
         \ "(,(\")(\")",
-        \], 
+        \],
     \],
   \]
 
-  let l:anim = get(l:animation, a:number, l:animation[neocomplcache#rand(len(l:animation) - 1)])
+  let l:number = (a:number != '') ? a:number : len(l:animation)
+  let l:anim = get(l:animation, l:number, l:animation[neocomplcache#rand(len(l:animation) - 1)])
   let &cmdheight = len(l:anim[0])
 
   for l:frame in l:anim
