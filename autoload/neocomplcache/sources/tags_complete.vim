@@ -24,6 +24,9 @@
 " }}}
 "=============================================================================
 
+let s:save_cpo = &cpo
+set cpo&vim
+
 let s:source = {
       \ 'name' : 'tags_complete',
       \ 'kind' : 'plugin',
@@ -102,7 +105,11 @@ function! s:initialize_tags(filename)"{{{
   endif
 
   let l:keyword_lists = {}
-  let l:loaded_list = neocomplcache#cache#load_from_tags('tags_cache', a:filename, readfile(a:filename), 'T', l:ft)
+  let l:tags_list = readfile(a:filename)
+  if has('iconv') && &termencoding != '' && &termencoding != &encoding
+    let l:tags_list = map(l:tags_list, 'iconv(v:val, "&termencoding", "&encoding")')
+  endif
+  let l:loaded_list = neocomplcache#cache#load_from_tags('tags_cache', a:filename, l:tags_list, 'T', l:ft)
   if len(l:loaded_list) > 300
     call neocomplcache#cache#save_cache('tags_cache', a:filename, l:loaded_list)
   endif
@@ -118,5 +125,8 @@ function! s:initialize_tags(filename)"{{{
 
   return l:keyword_lists
 endfunction"}}}
+
+let &cpo = s:save_cpo
+unlet s:save_cpo
 
 " vim: foldmethod=marker

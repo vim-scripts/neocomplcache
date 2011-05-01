@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: include_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 30 Sep 2010
+" Last Modified: 22 Apr 2011.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -24,6 +24,9 @@
 " }}}
 "=============================================================================
 
+let s:save_cpo = &cpo
+set cpo&vim
+
 let s:include_info = {}
 
 let s:source = {
@@ -37,7 +40,7 @@ function! s:source.initialize()"{{{
   let s:include_cache = {}
   let s:cached_pattern = {}
   let s:completion_length = neocomplcache#get_auto_completion_length('include_complete')
-  
+
   " Set rank.
   call neocomplcache#set_dictionary_helper(g:neocomplcache_plugin_rank, 'include_complete', 7)
 
@@ -71,7 +74,7 @@ function! s:source.initialize()"{{{
   if neocomplcache#exists_echodoc()
     call echodoc#register('include_complete', s:doc_dict)
   endif
-  
+
   " Initialize check.
   call s:check_buffer_all()
 endfunction"}}}
@@ -131,7 +134,7 @@ function! s:doc_dict.search(cur_text)"{{{
   if &filetype ==# 'vim' || !has_key(s:include_info, bufnr('%'))
     return []
   endif
-  
+
   " Collect words.
   let l:words = []
   let i = 0
@@ -140,37 +143,34 @@ function! s:doc_dict.search(cur_text)"{{{
     if len(l:word) >= s:completion_length
       call add(l:words, l:word)
     endif
-    
+
     let i = matchend(a:cur_text, '\k\+', i)
   endwhile
 
   for l:word in reverse(l:words)
     let l:key = tolower(l:word[: s:completion_length-1])
-    
-    for l:include in s:include_info[bufnr('%')].include_files
-      if has_key(s:include_cache[l:include], l:key)
-        let l:cache = filter(copy(s:include_cache[l:include][l:key]), 'stridx(v:val.word, ' . string(l:word) . ') == 0')
-        if !empty(l:cache) && has_key(l:cache[0], 'kind') && l:cache[0].kind != ''
-          let l:match = match(neocomplcache#escape_match(l:cache[0].abbr), l:word)
-          if l:match >= 0
-            let l:ret = []
 
-            if l:match > 0
-              call add(l:ret, { 'text' : l:cache[0].abbr[ : l:match-1] })
-            endif
-            
-            call add(l:ret, { 'text' : l:word, 'highlight' : 'Identifier' })
-            call add(l:ret, { 'text' : l:cache[0].abbr[l:match+len(l:word) :] })
+    for l:include in filter(copy(s:include_info[bufnr('%')].include_files),
+          \ 'has_key(s:include_cache[v:val], l:key)')
+      for l:matched in filter(copy(s:include_cache[l:include][l:key]),
+            \ 'v:val.word ==# l:word && has_key(v:val, "kind") && v:val.kind != ""')
+        let l:ret = []
 
-            if l:match > 0 || len(l:ret[-1].text) > 0
-              return l:ret
-            endif
-          endif
+        let l:match = match(l:matched.abbr, neocomplcache#escape_match(l:word))
+        if l:match > 0
+          call add(l:ret, { 'text' : l:matched.abbr[ : l:match-1] })
         endif
-      endif
+
+        call add(l:ret, { 'text' : l:word, 'highlight' : 'Identifier' })
+        call add(l:ret, { 'text' : l:matched.abbr[l:match+len(l:word) :] })
+
+        if l:match > 0 || len(l:ret[-1].text) > 0
+          return l:ret
+        endif
+      endfor
     endfor
   endfor
-  
+
   return []
 endfunction"}}}
 "}}}
@@ -191,26 +191,22 @@ function! s:check_buffer(bufname)"{{{
   let l:bufname = fnamemodify((a:bufname == '' ? bufname('%') : a:bufname), ':p')
   let l:bufnumber = bufnr(l:bufname)
   let s:include_info[l:bufnumber] = {}
-  if (g:neocomplcache_disable_caching_buffer_name_pattern == '' || l:bufname !~ g:neocomplcache_disable_caching_buffer_name_pattern)
-        \&& getbufvar(l:bufnumber, '&readonly') == 0
-    let l:filetype = getbufvar(l:bufnumber, '&filetype')
-    if l:filetype == ''
-      let l:filetype = 'nothing'
-    endif
 
-    " Check include.
-    let l:include_files = s:get_buffer_include_files(l:bufnumber)
-    for l:filename in l:include_files
-      if !has_key(s:include_cache, l:filename)
-        " Caching.
-        let s:include_cache[l:filename] = s:load_from_tags(l:filename, l:filetype)
-      endif
-    endfor
-
-    let s:include_info[l:bufnumber].include_files = l:include_files
-  else
-    let s:include_info[l:bufnumber].include_files = []
+  let l:filetype = getbufvar(l:bufnumber, '&filetype')
+  if l:filetype == ''
+    let l:filetype = 'nothing'
   endif
+
+  " Check include.
+  let l:include_files = s:get_buffer_include_files(l:bufnumber)
+  for l:filename in l:include_files
+    if !has_key(s:include_cache, l:filename)
+      " Caching.
+      let s:include_cache[l:filename] = s:load_from_tags(l:filename, l:filetype)
+    endif
+  endfor
+
+  let s:include_info[l:bufnumber].include_files = l:include_files
 endfunction"}}}
 function! s:get_buffer_include_files(bufnumber)"{{{
   let l:filetype = getbufvar(a:bufnumber, '&filetype')
@@ -231,14 +227,14 @@ function! s:get_buffer_include_files(bufnumber)"{{{
           \ getbufvar(a:bufnumber, '&path') . ',/usr/include/c++/*')
   endif
 
-  let l:pattern = has_key(g:neocomplcache_include_patterns, l:filetype) ? 
+  let l:pattern = has_key(g:neocomplcache_include_patterns, l:filetype) ?
         \g:neocomplcache_include_patterns[l:filetype] : getbufvar(a:bufnumber, '&include')
   if l:pattern == ''
     return []
   endif
-  let l:path = has_key(g:neocomplcache_include_paths, l:filetype) ? 
+  let l:path = has_key(g:neocomplcache_include_paths, l:filetype) ?
         \g:neocomplcache_include_paths[l:filetype] : getbufvar(a:bufnumber, '&path')
-  let l:expr = has_key(g:neocomplcache_include_exprs, l:filetype) ? 
+  let l:expr = has_key(g:neocomplcache_include_exprs, l:filetype) ?
         \g:neocomplcache_include_exprs[l:filetype] : getbufvar(a:bufnumber, '&includeexpr')
   if has_key(g:neocomplcache_include_suffixes, l:filetype)
     let l:suffixes = &l:suffixesadd
@@ -298,11 +294,16 @@ function! s:load_from_tags(filename, filetype)"{{{
     return s:load_from_file(a:filename, a:filetype)
   endif
 
-  let l:args = has_key(g:neocomplcache_ctags_arguments_list, a:filetype) ? 
-        \g:neocomplcache_ctags_arguments_list[a:filetype] : g:neocomplcache_ctags_arguments_list['default']
-  let l:command = has('win32') || has('win64') ? 
-        \printf('%s -f - %s %s', g:neocomplcache_ctags_program, l:args, fnamemodify(a:filename, ':p:.')) : 
-        \printf('%s -f /dev/stdout 2>/dev/null %s %s', g:neocomplcache_ctags_program, l:args, fnamemodify(a:filename, ':p:.'))
+  let l:args = has_key(g:neocomplcache_ctags_arguments_list, a:filetype) ?
+        \ g:neocomplcache_ctags_arguments_list[a:filetype] : g:neocomplcache_ctags_arguments_list['default']
+  let l:filename = fnamemodify(a:filename, ':p:.')
+  if neocomplcache#is_win()
+    let l:filename = substitute(l:filename, '\\', '/', 'g')
+    let l:command = printf('%s -f - %s "%s"', g:neocomplcache_ctags_program, l:args, l:filename)
+  else
+    let l:command = printf('%s -f /dev/stdout 2>/dev/null %s ''%s''', g:neocomplcache_ctags_program, l:args, l:filename)
+  endif
+
   let l:lines = split(neocomplcache#system(l:command), '\n')
 
   if !empty(l:lines)
@@ -319,7 +320,7 @@ function! s:load_from_tags(filename, filetype)"{{{
     endif
 
     call add(l:keyword_lists[l:key], l:keyword)
-  endfor 
+  endfor
 
   call neocomplcache#cache#save_cache('include_cache', a:filename, neocomplcache#unpack_dictionary(l:keyword_lists))
 
@@ -378,5 +379,8 @@ if !exists('g:neocomplcache_include_suffixes')
   let g:neocomplcache_include_suffixes = {}
 endif
 "}}}
+
+let &cpo = s:save_cpo
+unlet s:save_cpo
 
 " vim: foldmethod=marker

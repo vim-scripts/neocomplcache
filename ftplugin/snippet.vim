@@ -24,38 +24,18 @@
 " }}}
 "=============================================================================
 
-" Only load this indent file when no other was loaded.
-if exists('b:did_indent')
-  finish
-endif
-let b:did_indent = 1
-
 let s:save_cpo = &cpo
 set cpo&vim
 
-if !exists('b:undo_indent')
-    let b:undo_indent = ''
+if !exists('b:undo_ftplugin')
+    let b:undo_ftplugin = ''
 endif
 
-setlocal indentexpr=SnippetsIndent()
+setlocal expandtab
+setlocal shiftwidth=4
+setlocal softtabstop=4
 
-function! SnippetsIndent()"{{{
-    let l:line = getline('.')
-    let l:prev_line = (line('.') == 1)? '' : getline(line('.')-1)
-
-    if l:prev_line =~ '^\s*$'
-        return 0
-    elseif l:prev_line =~ '^\%(include\|snippet\|abbr\|prev_word\|rank\|delete\|alias\|condition\)'
-                \&& l:line !~ '^\s*\%(include\|snippet\|abbr\|prev_word\|rank\|delete\|alias\|condition\)'
-        return &shiftwidth
-    else
-        return match(l:line, '\S')
-    endif
-endfunction"}}}
-
-let b:undo_indent .= '
-    \ | setlocal indentexpr<
+let b:undo_ftplugin .= '
+    \ | setlocal expandtab< shiftwidth< softtabstop<
     \'
 
-let &cpo = s:save_cpo
-unlet s:save_cpo
