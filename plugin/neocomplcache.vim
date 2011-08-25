@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: neocomplcache.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 21 Apr 2011.
+" Last Modified: 22 Jul 2011.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -22,7 +22,7 @@
 "     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 "     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 " }}}
-" Version: 6.0, for Vim 7.0
+" Version: 6.1, for Vim 7.0
 " GetLatestVimScripts: 2620 1 :AutoInstall: neocomplcache
 "=============================================================================
 
@@ -37,6 +37,12 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 command! -nargs=0 NeoComplCacheEnable call neocomplcache#enable()
+command! -nargs=0 NeoComplCacheDisable call neocomplcache#disable()
+command! -nargs=0 NeoComplCacheLock call neocomplcache#lock()
+command! -nargs=0 NeoComplCacheUnlock call neocomplcache#unlock()
+command! -nargs=0 NeoComplCacheToggle call neocomplcache#toggle_lock()
+command! -nargs=1 NeoComplCacheLockPlugin call neocomplcache#lock_plugin(<q-args>)
+command! -nargs=1 NeoComplCacheUnlockPlugin call neocomplcache#unlock_plugin(<q-args>)
 
 " Obsolute options check."{{{
 if exists('g:NeoComplCache_EnableAtStartup')
@@ -151,6 +157,9 @@ if !exists('g:neocomplcache_quick_match_table')
         \'a' : 0, 's' : 1, 'd' : 2, 'f' : 3, 'g' : 4, 'h' : 5, 'j' : 6, 'k' : 7, 'l' : 8, ';' : 9,
         \'q' : 10, 'w' : 11, 'e' : 12, 'r' : 13, 't' : 14, 'y' : 15, 'u' : 16, 'i' : 17, 'o' : 18, 'p' : 19, 
         \}
+endif
+if !exists('g:neocomplcache_force_overwrite_completefunc')
+  let g:neocomplcache_force_overwrite_completefunc = 0
 endif
 if exists('g:neocomplcache_enable_at_startup') && g:neocomplcache_enable_at_startup
   augroup neocomplcache

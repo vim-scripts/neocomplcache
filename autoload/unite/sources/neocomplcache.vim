@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: neocomplcache.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 22 Apr 2011.
+" Last Modified: 10 Jul 2011.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -82,7 +82,11 @@ function! s:neocomplcache_source.gather_candidates(args, context) "{{{
       let l:dict.abbr .= ' ' . l:keyword.menu
     endif
     if has_key(l:keyword, 'description')
-      let l:dict.action__complete_info = l:keyword.description
+      if type(l:keyword.description) ==# type(function('tr'))
+        let l:dict.action__complete_info_lazy = l:keyword.description
+      else
+        let l:dict.action__complete_info = l:keyword.description
+      endif
     endif
 
     call add(l:list, l:dict)

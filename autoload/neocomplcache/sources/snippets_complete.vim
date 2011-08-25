@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: snippets_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 22 Apr 2011.
+" Last Modified: 04 Aug 2011.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -46,14 +46,20 @@ function! s:source.initialize()"{{{
   let s:end_snippet = 0
   let s:snippet_holder_cnt = 1
 
-  " Set snips_author.
-  if !exists('snips_author')
-    let g:snips_author = 'Me'
+  if !exists('g:neocomplcache_snippets_disable_runtime_snippets')
+    let g:neocomplcache_snippets_disable_runtime_snippets = 0
   endif
 
-  " Set snippets dir.
+  let s:snippets_dir = []
   let s:runtime_dir = split(globpath(&runtimepath, 'autoload/neocomplcache/sources/snippets_complete'), '\n')
-  let s:snippets_dir = split(globpath(&runtimepath, 'snippets'), '\n') + s:runtime_dir
+
+  if !g:neocomplcache_snippets_disable_runtime_snippets
+    " Set snippets dir.
+    let s:snippets_dir += (exists('g:snippets_dir') ?
+          \ split(g:snippets_dir, ',') : split(globpath(&runtimepath, 'snippets'), '\n'))
+          \ + s:runtime_dir
+  endif
+
   if exists('g:neocomplcache_snippets_dir')
     for l:dir in split(g:neocomplcache_snippets_dir, ',')
       let l:dir = expand(l:dir)
@@ -63,20 +69,25 @@ function! s:source.initialize()"{{{
       call add(s:snippets_dir, l:dir)
     endfor
   endif
+  call map(s:snippets_dir, 'substitute(v:val, "[\\\\/]$", "", "")')
 
   augroup neocomplcache"{{{
     " Set caching event.
     autocmd FileType * call s:caching()
     " Recaching events
-    autocmd BufWritePost *.snip,*.snippets call s:caching_snippets(expand('<afile>:t:r')) 
+    autocmd BufWritePost *.snip,*.snippets call s:caching_snippets(expand('<afile>:t:r'))
     " Detect syntax file.
     autocmd BufNewFile,BufRead *.snip,*.snippets set filetype=snippet
-    autocmd BufNewFile,BufWinEnter * syn match   NeoComplCacheExpandSnippets         
-          \'\${\d\+\%(:.\{-}\)\?\\\@<!}\|\$<\d\+\%(:.\{-}\)\?\\\@<!>\|\$\d\+'
+    autocmd BufNewFile,BufWinEnter,ColorScheme * syn match   NeoComplCacheExpandSnippets
+          \ '\${\d\+\%(:.\{-}\)\?\\\@<!}\|\$<\d\+\%(:.\{-}\)\?\\\@<!>\|\$\d\+'
   augroup END"}}}
 
-  command! -nargs=? -complete=customlist,neocomplcache#filetype_complete NeoComplCacheEditSnippets call s:edit_snippets(<q-args>, 0)
-  command! -nargs=? -complete=customlist,neocomplcache#filetype_complete NeoComplCacheEditRuntimeSnippets call s:edit_snippets(<q-args>, 1)
+  command! -nargs=? -complete=customlist,neocomplcache#filetype_complete
+        \ NeoComplCacheEditSnippets call s:edit_snippets(<q-args>, 0)
+  command! -nargs=? -complete=customlist,neocomplcache#filetype_complete
+        \ NeoComplCacheEditRuntimeSnippets call s:edit_snippets(<q-args>, 1)
+  command! -nargs=? -complete=customlist,neocomplcache#filetype_complete
+        \ NeoComplCacheCachingSnippets call s:caching_snippets(<q-args>)
 
   hi def link NeoComplCacheExpandSnippets Special
 
@@ -109,6 +120,7 @@ endfunction"}}}
 function! s:source.finalize()"{{{
   delcommand NeoComplCacheEditSnippets
   delcommand NeoComplCacheEditRuntimeSnippets
+  delcommand NeoComplCacheCachingSnippets
 
   hi clear NeoComplCacheExpandSnippets
 
@@ -221,18 +233,20 @@ function! neocomplcache#sources#snippets_complete#expandable()"{{{
 endfunction"}}}
 
 function! s:caching()"{{{
-  for l:filetype in keys(neocomplcache#get_source_filetypes(neocomplcache#get_context_filetype(1)))
+  for l:filetype in neocomplcache#get_source_filetypes(neocomplcache#get_context_filetype(1))
     if !has_key(s:snippets, l:filetype)
       call s:caching_snippets(l:filetype)
     endif
   endfor
 endfunction"}}}
 
-function! s:set_snippet_dict(snippet_pattern, snippet_dict, dup_check)"{{{
+function! s:set_snippet_dict(snippet_pattern, snippet_dict, dup_check, snippets_file)"{{{
   if has_key(a:snippet_pattern, 'name')
     let l:pattern = s:set_snippet_pattern(a:snippet_pattern)
+    let l:action_pattern = '^snippet\s\+' . a:snippet_pattern.name . '$'
     let a:snippet_dict[a:snippet_pattern.name] = l:pattern
     let a:dup_check[a:snippet_pattern.name] = 1
+
     if has_key(a:snippet_pattern, 'alias')
       for l:alias in a:snippet_pattern.alias
         let l:alias_pattern = copy(l:pattern)
@@ -242,11 +256,17 @@ function! s:set_snippet_dict(snippet_pattern, snippet_dict, dup_check)"{{{
               \       len(l:alias) > g:neocomplcache_max_keyword_width) ?
               \ printf(l:abbr_pattern, l:alias, l:alias[-8:]) : l:alias
         let l:alias_pattern.abbr = l:abbr
+        let l:alias_pattern.action__path = a:snippets_file
+        let l:alias_pattern.action__pattern = l:action_pattern
 
         let a:snippet_dict[alias] = l:alias_pattern
         let a:dup_check[alias] = 1
       endfor
     endif
+
+    let l:snippet = a:snippet_dict[a:snippet_pattern.name]
+    let l:snippet.action__path = a:snippets_file
+    let l:snippet.action__pattern = l:action_pattern
   endif
 endfunction"}}}
 function! s:set_snippet_pattern(dict)"{{{
@@ -286,18 +306,11 @@ function! s:edit_snippets(filetype, isruntime)"{{{
 
     let l:filename = s:runtime_dir[0].'/'.l:filetype.'.snip'
   else
-    if empty(s:snippets_dir) 
+    if empty(s:snippets_dir)
       return
     endif
 
     let l:filename = s:snippets_dir[-1].'/'.l:filetype.'.snip'
-  endif
-
-  " Split nicely.
-  if winheight(0) > &winheight
-    split
-  else
-    vsplit
   endif
 
   if filereadable(l:filename)
@@ -310,13 +323,17 @@ function! s:edit_snippets(filetype, isruntime)"{{{
 endfunction"}}}
 
 function! s:caching_snippets(filetype)"{{{
+  let l:filetype = a:filetype == '' ?
+        \ &filetype : a:filetype
+
   let l:snippet = {}
-  let l:snippets_files = split(globpath(join(s:snippets_dir, ','), a:filetype .  '.snip*'), '\n')
+  let l:snippets_files = split(globpath(join(s:snippets_dir, ','), l:filetype .  '.snip*'), '\n')
+        \ + split(globpath(join(s:snippets_dir, ','), l:filetype .  '_*.snip*'), '\n')
   for snippets_file in l:snippets_files
     call s:load_snippets(l:snippet, snippets_file)
   endfor
 
-  let s:snippets[a:filetype] = l:snippet
+  let s:snippets[l:filetype] = l:snippet
 endfunction"}}}
 
 function! s:load_snippets(snippet, snippets_file)"{{{
@@ -346,11 +363,12 @@ function! s:load_snippets(snippet, snippets_file)"{{{
     elseif line =~ '^snippet\s'
       if has_key(l:snippet_pattern, 'name')
         " Set previous snippet.
-        call s:set_snippet_dict(l:snippet_pattern, a:snippet, l:dup_check)
+        call s:set_snippet_dict(l:snippet_pattern, a:snippet, l:dup_check, a:snippets_file)
         let l:snippet_pattern = { 'word' : '' }
       endif
 
-      let l:snippet_pattern.name = matchstr(line, '^snippet\s\+\zs.*$')
+      let l:snippet_pattern.name =
+            \ substitute(matchstr(line, '^snippet\s\+\zs.*$'), '\s', '_', 'g')
 
       " Check for duplicated names.
       if has_key(l:dup_check, l:snippet_pattern.name)
@@ -370,7 +388,7 @@ function! s:load_snippets(snippet, snippets_file)"{{{
           let l:snippet_pattern.word = matchstr(line, '^\s\+\zs.*$')
         elseif line =~ '^\t'
           let line = substitute(line, '^\s', '', '')
-          let l:snippet_pattern.word .= '<\n>' . 
+          let l:snippet_pattern.word .= '<\n>' .
                 \substitute(line, '^\t\+', repeat('<\\t>', matchend(line, '^\t\+')), '')
         else
           let l:snippet_pattern.word .= '<\n>' . matchstr(line, '^\s\+\zs.*$')
@@ -385,7 +403,7 @@ function! s:load_snippets(snippet, snippets_file)"{{{
   endfor
 
   " Set previous snippet.
-  call s:set_snippet_dict(l:snippet_pattern, a:snippet, l:dup_check)
+  call s:set_snippet_dict(l:snippet_pattern, a:snippet, l:dup_check, a:snippets_file)
 
   return a:snippet
 endfunction"}}}
@@ -431,6 +449,16 @@ function! s:snippets_jump_or_expand(cur_text, col)"{{{
 endfunction"}}}
 function! neocomplcache#sources#snippets_complete#expand(cur_text, col, trigger_name)"{{{
   if a:trigger_name == ''
+    let l:pos = getpos('.')
+    let l:pos[2] = len(a:cur_text)+1
+    call setpos('.', l:pos)
+
+    if l:pos[2] < col('$')
+      startinsert
+    else
+      startinsert!
+    endif
+
     return
   endif
 

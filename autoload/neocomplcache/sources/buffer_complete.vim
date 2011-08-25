@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: buffer_complete.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 22 Apr 2011.
+" Last Modified: 20 Jun 2011.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -40,8 +40,9 @@ let s:source = {
 function! s:source.initialize()"{{{
   augroup neocomplcache"{{{
     " Caching events
-    autocmd FileType,BufWritePost,CursorHold * call s:check_source()
+    autocmd InsertEnter * call s:check_source()
     autocmd CursorHold * call s:rank_caching_current_cache_line(1)
+    autocmd CursorHold * call s:check_deleted_buffer()
     autocmd InsertEnter,CursorHoldI * call s:rank_caching_current_cache_line(0)
     autocmd InsertLeave * call neocomplcache#sources#buffer_complete#caching_current_cache_line()
     autocmd VimLeavePre * call s:save_all_cache()
@@ -75,9 +76,6 @@ function! s:source.initialize()"{{{
   command! -nargs=? -complete=buffer NeoComplCacheDisableCaching call s:disable_caching(<q-args>)
   command! -nargs=? -complete=buffer NeoComplCacheEnableCaching call s:enable_caching(<q-args>)
   "}}}
-
-  " Initialize cache.
-  call s:check_source()
 endfunction
 "}}}
 
@@ -155,7 +153,8 @@ function! neocomplcache#sources#buffer_complete#caching_current_cache_line()"{{{
 
   let l:source = s:buffer_sources[bufnr('%')]
   let l:filename = fnamemodify(l:source.name, ':t')
-  let l:menu = printf('[B] %.' . g:neocomplcache_max_filename_width . 's', l:filename)
+  let l:menu = '[B] ' . neocomplcache#util#strwidthpart(
+        \ l:filename, g:neocomplcache_max_filename_width)
   let l:keyword_pattern = l:source.keyword_pattern
   let l:keyword_pattern2 = '^\%('.l:keyword_pattern.'\m\)'
   let l:keywords = l:source.keyword_cache
@@ -271,9 +270,13 @@ endfunction"}}}
 function! s:get_sources_list()"{{{
   let l:sources_list = []
 
-  let l:filetypes = neocomplcache#get_source_filetypes(neocomplcache#get_context_filetype())
+  let l:filetypes_dict = {}
+  for l:filetype in neocomplcache#get_source_filetypes(neocomplcache#get_context_filetype())
+    let l:filetypes_dict[l:filetype] = 1
+  endfor
+
   for key in keys(s:buffer_sources)
-    if has_key(l:filetypes, s:buffer_sources[key].filetype) || bufnr('%') == key
+    if has_key(l:filetypes_dict, s:buffer_sources[key].filetype) || bufnr('%') == key
           \ || (bufname('%') ==# '[Command Line]' && bufnr('#') == key)
       call add(l:sources_list, key)
     endif
@@ -306,7 +309,8 @@ function! s:rank_caching_current_cache_line(is_force)"{{{
   let l:rank_lines = l:source.rank_lines[l:cache_num]
 
   let l:buflines = getline(l:start_line, l:end_line)
-  let l:menu = printf('[B] %.' . g:neocomplcache_max_filename_width . 's', l:filename)
+  let l:menu = '[B] ' . neocomplcache#util#strwidthpart(
+        \ l:filename, g:neocomplcache_max_filename_width)
   let l:keyword_pattern = l:source.keyword_pattern
   let l:keyword_pattern2 = '^\%('.l:keyword_pattern.'\m\)'
 
@@ -356,7 +360,7 @@ function! s:rank_caching_current_cache_line(is_force)"{{{
 
       " Next match.
       let l:match = matchend(l:line, l:keyword_pattern, l:match + len(l:match_str))
-      
+
       while l:match_str != ''
         let l:member_name = matchstr(l:match_str, l:member_pattern)
         let l:var_name = l:match_str[ : -len(l:member_name)-1]
@@ -480,46 +484,36 @@ function! s:check_changed_buffer(bufnumber)"{{{
 endfunction"}}}
 
 function! s:check_source()"{{{
-  call s:check_deleted_buffer()
-
-  let l:bufnumber = 1
+  let l:bufnumber = bufnr('%')
 
   " Check new buffer.
-  while l:bufnumber <= bufnr('$')
-    if bufwinnr(l:bufnumber) >= 0
-      let l:bufname = fnamemodify(bufname(l:bufnumber), ':p')
-      if (!has_key(s:buffer_sources, l:bufnumber) || s:check_changed_buffer(l:bufnumber))
-            \&& !has_key(s:disable_caching_list, l:bufnumber)
-            \&& !neocomplcache#is_locked(l:bufnumber)
+  let l:bufname = fnamemodify(bufname(l:bufnumber), ':p')
+  if (!has_key(s:buffer_sources, l:bufnumber) || s:check_changed_buffer(l:bufnumber))
+        \ && !has_key(s:disable_caching_list, l:bufnumber)
+        \ && !neocomplcache#is_locked(l:bufnumber)
+        \ && !getwinvar(bufwinnr(l:bufnumber), '&previewwindow')
+        \ && getfsize(l:bufname) < g:neocomplcache_caching_limit_file_size
+        \ && (g:neocomplcache_force_caching_buffer_name_pattern == ''
+        \       || l:bufname !~ g:neocomplcache_force_caching_buffer_name_pattern)
 
-        let l:buftype = getbufvar(l:bufnumber, '&buftype')
-        if (g:neocomplcache_force_caching_buffer_name_pattern != '' && l:bufname =~ g:neocomplcache_force_caching_buffer_name_pattern)
-              \ || (getfsize(l:bufname) < g:neocomplcache_caching_limit_file_size
-              \     && (l:buftype == ''
-              \         || (getbufvar(l:bufnumber, '&modifiable') && !getbufvar(l:bufnumber, '&readonly') && l:buftype !~ 'help')))
-          " Caching.
-          call s:word_caching(l:bufnumber)
-        endif
-      endif
+    " Caching.
+    call s:word_caching(l:bufnumber)
+  endif
 
-      if has_key(s:buffer_sources, l:bufnumber)
-            \ && !s:buffer_sources[l:bufnumber].loaded_cache
-        let l:source = s:buffer_sources[l:bufnumber]
+  if has_key(s:buffer_sources, l:bufnumber)
+        \ && !s:buffer_sources[l:bufnumber].loaded_cache
+    let l:source = s:buffer_sources[l:bufnumber]
 
-        if filereadable(l:source.cache_name)
-          " Caching from cache.
-          call neocomplcache#cache#list2index(
-                \ neocomplcache#cache#load_from_cache('buffer_cache', l:source.path),
-                \ l:source.keyword_cache,
-                \ s:completion_length)
+    if filereadable(l:source.cache_name)
+      " Caching from cache.
+      call neocomplcache#cache#list2index(
+            \ neocomplcache#cache#load_from_cache('buffer_cache', l:source.path),
+            \ l:source.keyword_cache,
+            \ s:completion_length)
 
-          let l:source.loaded_cache = 1
-        endif
-      endif
+      let l:source.loaded_cache = 1
     endif
-
-    let l:bufnumber += 1
-  endwhile
+  endif
 endfunction"}}}
 function! s:check_deleted_buffer()"{{{
   " Check deleted buffer.
