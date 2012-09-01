@@ -1,7 +1,7 @@
 "=============================================================================
 " FILE: neocomplcache.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 04 May 2012.
+" Last Modified: 24 Aug 2012.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -22,7 +22,7 @@
 "     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 "     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 " }}}
-" Version: 7.0, for Vim 7.2
+" Version: 7.1, for Vim 7.2
 " GetLatestVimScripts: 2620 1 :AutoInstall: neocomplcache
 "=============================================================================
 
@@ -55,23 +55,30 @@ command! -nargs=1 -bar NeoComplCacheLockSource
       \ call neocomplcache#lock_source(<q-args>)
 command! -nargs=1 -bar NeoComplCacheUnlockSource
       \ call neocomplcache#unlock_source(<q-args>)
+if v:version >= 703
+  command! -nargs=1 -bar -complete=filetype NeoComplCacheSetFileType
+        \ call neocomplcache#set_file_type(<q-args>)
+else
+  command! -nargs=1 -bar NeoComplCacheSetFileType
+        \ call neocomplcache#set_file_type(<q-args>)
+endif
 
 " Warning if using obsolute mappings."{{{
-inoremap <unique> <Plug>(neocomplcache_snippets_expand)
+silent! inoremap <unique> <Plug>(neocomplcache_snippets_expand)
       \ <C-o>:echoerr <SID>print_snippets_complete_error()<CR>
-snoremap <unique> <Plug>(neocomplcache_snippets_expand)
+silent! snoremap <unique> <Plug>(neocomplcache_snippets_expand)
       \ :<C-u>:echoerr <SID>print_snippets_complete_error()<CR>
-inoremap <unique> <Plug>(neocomplcache_snippets_jump)
+silent! inoremap <unique> <Plug>(neocomplcache_snippets_jump)
       \ <C-o>:echoerr <SID>print_snippets_complete_error()<CR>
-snoremap <unique> <Plug>(neocomplcache_snippets_jump)
+silent! snoremap <unique> <Plug>(neocomplcache_snippets_jump)
       \ :<C-u>:echoerr <SID>print_snippets_complete_error()<CR>
-inoremap <unique> <Plug>(neocomplcache_snippets_force_expand)
+silent! inoremap <unique> <Plug>(neocomplcache_snippets_force_expand)
       \ <C-o>:echoerr <SID>print_snippets_complete_error()<CR>
-snoremap <unique> <Plug>(neocomplcache_snippets_force_expand)
+silent! snoremap <unique> <Plug>(neocomplcache_snippets_force_expand)
       \ :<C-u>:echoerr <SID>print_snippets_complete_error()<CR>
-inoremap <unique> <Plug>(neocomplcache_snippets_force_jump)
+silent! inoremap <unique> <Plug>(neocomplcache_snippets_force_jump)
       \ <C-o>:echoerr <SID>print_snippets_complete_error()<CR>
-snoremap <unique> <Plug>(neocomplcache_snippets_force_jump)
+silent! snoremap <unique> <Plug>(neocomplcache_snippets_force_jump)
       \ :<C-u>:echoerr <SID>print_snippets_complete_error()<CR>
 function! s:print_snippets_complete_error()
   return 'Warning: neocomplcache snippets source was splitted!'
@@ -134,13 +141,11 @@ let g:neocomplcache_force_overwrite_completefunc =
       \ get(g:, 'neocomplcache_force_overwrite_completefunc', 0)
 let g:neocomplcache_enable_prefetch =
       \ get(g:, 'neocomplcache_enable_prefetch',
-      \ 1)
+      \  !(v:version > 703 || v:version == 703 && has('patch519'))
+      \ || (has('gui_running') && has('xim'))
+      \ )
 let g:neocomplcache_lock_iminsert =
       \ get(g:, 'neocomplcache_lock_iminsert', 0)
-" Note: This feature is temporary disabled.
-      " \  !(v:version > 703 || v:version == 703 && has('patch418')
-      " \  && (!has('xim') || !has('gui_running'))
-      " \ ))
 let g:neocomplcache_release_cache_time =
       \ get(g:, 'neocomplcache_release_cache_time', 900)
 
